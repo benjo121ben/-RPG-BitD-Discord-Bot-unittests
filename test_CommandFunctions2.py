@@ -1,18 +1,21 @@
-from unittest import TestCase
+import pytest
+
 from src.ext.Campaign import save_file_management as save_manager, CommandFunctions as commands
 
-from test_const_vars import unit_test_save_file_name
+from .test_const_vars import unit_test_save_file_name
 
 
-class TestCommandFunctions(TestCase):
-    def setUp(self) -> None:
+class TestCommandFunctions:
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        print("setup")
         if save_manager.check_savefile_existence(unit_test_save_file_name):
             save_manager.remove(unit_test_save_file_name)
             print("deleted existing unit test savefile")
         save_manager.load(unit_test_save_file_name)
-
-    def tearDown(self) -> None:
+        yield "setup"
         save_manager.remove(unit_test_save_file_name)
+        print("teardown")
 
     def test_log(self):
         print(commands.add_char("test", "test", 20))

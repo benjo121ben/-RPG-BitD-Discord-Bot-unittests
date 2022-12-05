@@ -2,10 +2,9 @@ import os
 import json
 import pathlib
 import shutil
-import unittest
-from unittest import TestCase
+import pytest
 from src.ext.Campaign import save_file_management as save_manager, packg_variables as cvars
-from test_const_vars import template_save_folder_relative_path, save_folder_relative_path, unit_test_save_file_name
+from .test_const_vars import template_save_folder_relative_path, save_folder_relative_path, unit_test_save_file_name
 
 this_file_folder_path = pathlib.Path(__file__).parent.resolve()
 
@@ -18,20 +17,6 @@ def get_save_path(save_name):
     return f"{os.path.join(this_file_folder_path, save_folder_relative_path)}{os.sep}{save_name}{save_manager.save_files_suffix}"
 
 
-def compare_char_with_dic(character, dic):
-    assert character.tag == dic["tag"]
-    assert character.name == dic["name"]
-    assert character.player == dic["player"]
-    assert character.health == int(dic["health"])
-    assert character.max_health == int(dic["max_health"])
-    assert character.damage_taken == int(dic["damage_taken"])
-    assert character.damage_caused == int(dic["damage_caused"])
-    assert character.damage_healed == int(dic["damage_healed"])
-    assert character.max_damage == int(dic["max_damage"])
-    assert character.kills == int(dic["kills"])
-    assert character.crits == int(dic["crits"])
-    assert character.faints == int(dic["faints"])
-    assert character.dodged == int(dic["dodged"])
 
 
 def move_template_save_to_save_folder(template_name):
@@ -43,33 +28,34 @@ def move_template_save_to_save_folder(template_name):
     return destination
 
 
-class TestCampaignSaveManager(TestCase):
-    def tearDown(self) -> None:
+class TestCampaignSaveManager():
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        yield "setup"
         save_manager.remove(unit_test_save_file_name)
 
     def test_load(self):
         template_file_name = "base_test_full"
         move_template_save_to_save_folder(template_file_name)
         save_manager.load(unit_test_save_file_name)
-        self.assertEqual(save_manager.save_file_no_suffix, unit_test_save_file_name)
+        assert save_manager.save_file_no_suffix == unit_test_save_file_name
         with open(get_template_path(template_file_name)) as file:
             file_dic = json.load(file)
 
         # check file stats
-        self.assertEqual(file_dic[save_manager.session_tag], cvars.imported_dic[save_manager.session_tag])
-        self.assertEqual(save_manager.parse_date_time(file_dic[save_manager.last_changed_tag]),
-                         cvars.imported_dic[save_manager.last_changed_tag])
+        assert file_dic[save_manager.session_tag] == cvars.imported_dic[save_manager.session_tag]
+        assert save_manager.parse_date_time(file_dic[save_manager.last_changed_tag]) \
+               == cvars.imported_dic[save_manager.last_changed_tag]
         # check character stats
         for tag, loaded_char_dic in file_dic[save_manager.character_tag].items():
-            with self.subTest(tag):
-                assert tag in cvars.charDic
-                compare_char_with_dic(cvars.charDic[tag], loaded_char_dic)
+            assert tag in cvars.charDic
+            compare_char_with_dic(cvars.charDic[tag], loaded_char_dic)
 
     def test_upgrade_versioning(self):
         template_file_name = "old_vers_test_full"
         new_file_path = move_template_save_to_save_folder(template_file_name)
         save_manager.load(unit_test_save_file_name) # since the file has an older version. This should upgrade the file to a new version
-        self.assertEqual(save_manager.save_file_no_suffix, unit_test_save_file_name)
+        assert save_manager.save_file_no_suffix == unit_test_save_file_name
 
         with open(get_template_path(template_file_name)) as orig_file:
             orig_file_dic = json.load(orig_file)
@@ -79,19 +65,18 @@ class TestCampaignSaveManager(TestCase):
         # check file stats
         t_last_change = save_manager.last_changed_tag
         t_session = save_manager.session_tag
-        self.assertEqual(orig_file_dic[t_session], new_file_dic[t_session])
-        self.assertEqual(orig_file_dic[t_session], cvars.imported_dic[t_session])
-        self.assertNotEqual(save_manager.parse_date_time(orig_file_dic[t_last_change]), cvars.imported_dic[t_last_change])
-        self.assertEqual(save_manager.parse_date_time(new_file_dic[t_last_change]), cvars.imported_dic[t_last_change])
+        assert orig_file_dic[t_session] == new_file_dic[t_session]
+        assert orig_file_dic[t_session] == cvars.imported_dic[t_session]
+        assert not (save_manager.parse_date_time(orig_file_dic[t_last_change]) == cvars.imported_dic[t_last_change])
+        assert save_manager.parse_date_time(new_file_dic[t_last_change]) == cvars.imported_dic[t_last_change]
 
         # check character stats
         new_file_chars = new_file_dic[save_manager.character_tag]
         for tag, loaded_char_dic in orig_file_dic[save_manager.character_tag].items():
-            with self.subTest(tag):
-                assert tag in cvars.charDic
-                assert tag in new_file_chars
-                compare_char_with_dic(cvars.charDic[tag], loaded_char_dic)
-                compare_char_with_dic(cvars.charDic[tag], new_file_chars[tag])
+            assert tag in cvars.charDic
+            assert tag in new_file_chars
+            compare_char_with_dic(cvars.charDic[tag], loaded_char_dic)
+            compare_char_with_dic(cvars.charDic[tag], new_file_chars[tag])
 
 
 
